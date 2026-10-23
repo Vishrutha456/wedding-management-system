@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wedora | Records</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Pinyon+Script&display=swap" rel="stylesheet">
+    <link href="css/wedora.css" rel="stylesheet">
+</head>
+<body>
+    <main class="records">
+
+        <!-- back to the timeline + who is signed in -->
+        <div class="topbar">
+            <a class="back-link" id="backLink" href="index.html"><span id="backIcon"></span>Timeline</a>
+            <div class="session-info" id="sessionInfo"></div>
+        </div>
+
+        <!-- selected event: icon, time, title, table name -->
+        <header class="rec-header" id="recHeader"></header>
+        <hr class="hairline">
+
+        <!-- sign-in panel OR records (filled in by js/records.js) -->
+        <section id="content">
+            <p class="state">Loading&hellip;</p>
+        </section>
+
+    </main>
+
+    <!-- one reusable pop-up for Add / Edit / Payments -->
+    <div class="modal-backdrop" id="modalBackdrop">
+        <div class="modal" id="modal" role="dialog" aria-modal="true"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/icons.js"></script>
+    <script src="js/events.js"></script>
+    <script src="js/records.js"></script>
+</body>
+</html>

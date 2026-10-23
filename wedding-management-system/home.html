@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home | Wedding Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+<nav id="navbar"></nav>
+
+<main>
+    <!-- ===== Hero ===== -->
+    <section class="hero">
+        <div class="container">
+            <span class="hero-badge mb-3">Plan &middot; Book &middot; Celebrate</span>
+            <h1 class="mb-3">Your whole wedding,<br>organised in one place.</h1>
+            <p class="lead mb-4">
+                Find venues, compare verified vendors, book service packages, track every payment
+                and share reviews - all backed by one reliable database.
+            </p>
+            <div class="d-flex flex-wrap gap-2" id="heroButtons">
+                <a href="register.html" class="btn btn-gold btn-lg px-4">Start planning</a>
+                <a href="vendors.html" class="btn btn-outline-light btn-lg px-4">Browse vendors</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== Live statistics (COUNT queries) ===== -->
+    <section class="container" style="margin-top:-2.2rem;">
+        <div class="row g-3" id="stats">
+            <div class="col-6 col-md-3"><div class="card-soft stat-card"><div class="label">Venues</div><div class="value" id="statVenues">-</div></div></div>
+            <div class="col-6 col-md-3"><div class="card-soft stat-card"><div class="label">Verified vendors</div><div class="value" id="statVendors">-</div></div></div>
+            <div class="col-6 col-md-3"><div class="card-soft stat-card"><div class="label">Categories</div><div class="value" id="statCategories">-</div></div></div>
+            <div class="col-6 col-md-3"><div class="card-soft stat-card"><div class="label">Service packages</div><div class="value" id="statPackages">-</div></div></div>
+        </div>
+    </section>
+
+    <!-- ===== Categories ===== -->
+    <section class="container mt-5">
+        <h2 class="section-title">Browse by category</h2>
+        <p class="section-sub">Every category comes from the <code>vendor_category</code> table.</p>
+        <div class="row g-3" id="categoryList"><p class="loading">Loading categories...</p></div>
+    </section>
+
+    <!-- ===== Top rated vendors ===== -->
+    <section class="container mt-5">
+        <h2 class="section-title">Top rated vendors</h2>
+        <p class="section-sub">Average ratings calculated live from customer reviews (<code>AVG()</code> on the <code>vendor_rating</code> view).</p>
+        <div class="row g-3" id="topVendors"><p class="loading">Loading vendors...</p></div>
+    </section>
+
+    <!-- ===== How it works ===== -->
+    <section class="container mt-5">
+        <h2 class="section-title">How it works</h2>
+        <p class="section-sub">From your first idea to the final payment.</p>
+        <div class="row g-3">
+            <div class="col-md-3"><div class="card-soft p-4 h-100"><div class="stat-card p-0"><div class="icon mb-3"><i class="bi bi-person-plus"></i></div></div><h5>1. Register</h5><p class="text-muted small mb-0">Create an account with Supabase Authentication.</p></div></div>
+            <div class="col-md-3"><div class="card-soft p-4 h-100"><div class="stat-card p-0"><div class="icon mb-3"><i class="bi bi-calendar-heart"></i></div></div><h5>2. Create a wedding</h5><p class="text-muted small mb-0">Add the couple, date, guest count, budget and venue.</p></div></div>
+            <div class="col-md-3"><div class="card-soft p-4 h-100"><div class="stat-card p-0"><div class="icon mb-3"><i class="bi bi-bag-check"></i></div></div><h5>3. Book packages</h5><p class="text-muted small mb-0">Check availability for your date and book verified vendors.</p></div></div>
+            <div class="col-md-3"><div class="card-soft p-4 h-100"><div class="stat-card p-0"><div class="icon mb-3"><i class="bi bi-wallet2"></i></div></div><h5>4. Pay &amp; review</h5><p class="text-muted small mb-0">Record payments, track your balance and rate vendors.</p></div></div>
+        </div>
+    </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script>
+    // An icon for each category name (falls back to a star)
+    const categoryIcons = {
+        'Photography': 'bi-camera', 'Catering': 'bi-cup-hot', 'Decoration': 'bi-flower2',
+        'Makeup': 'bi-brush', 'Music': 'bi-music-note-beamed', 'Mehendi': 'bi-palette',
+        'Wedding Planning': 'bi-clipboard-check'
+    };
+
+    // COUNT(*) of a table. RLS applies, so "vendor" only counts verified vendors for visitors.
+    async function countRows(table, filter) {
+        let query = db.from(table).select('*', { count: 'exact', head: true });
+        if (filter) query = filter(query);
+        const { count, error } = await query;
+        return error || count === null ? '-' : count;
+    }
+
+    async function loadStats() {
+        document.getElementById('statVenues').textContent     = await countRows('venue');
+        document.getElementById('statVendors').textContent    = await countRows('vendor', q => q.not('verified_by', 'is', null));
+        document.getElementById('statCategories').textContent = await countRows('vendor_category');
+        document.getElementById('statPackages').textContent   = await countRows('service_package', q => q.eq('is_active', true));
+    }
+
+    async function loadCategories() {
+        // SELECT category_id, category_name FROM vendor_category ORDER BY category_name
+        const { data, error } = await db.from('vendor_category')
+            .select('category_id, category_name').order('category_name');
+        const box = document.getElementById('categoryList');
+
+        if (error) { box.innerHTML = `<div class="alert alert-danger">${friendlyError(error)}</div>`; return; }
+        if (!data.length) { box.innerHTML = '<p class="text-muted">No categories added yet.</p>'; return; }
+
+        box.innerHTML = data.map(c => `
+            <div class="col-6 col-md-3">
+              <a class="card-soft card-hover category-pill" href="vendors.html?category=${c.category_id}">
+                <i class="bi ${categoryIcons[c.category_name] || 'bi-stars'}"></i>
+                <span class="fw-semibold">${esc(c.category_name)}</span>
+              </a>
+            </div>`).join('');
+    }
+
+    async function loadTopVendors() {
+        // SELECT * FROM vendor_rating WHERE review_count > 0 ORDER BY avg_rating DESC LIMIT 4
+        const { data, error } = await db.from('vendor_rating')
+            .select('*').gt('review_count', 0)
+            .order('avg_rating', { ascending: false }).limit(4);
+        const box = document.getElementById('topVendors');
+
+        if (error) { box.innerHTML = `<div class="alert alert-danger">${friendlyError(error)}</div>`; return; }
+        if (!data.length) { box.innerHTML = '<p class="text-muted">No reviews yet - ratings will appear here once customers review vendors.</p>'; return; }
+
+        box.innerHTML = data.map(v => `
+            <div class="col-md-3">
+              <a href="vendor-details.html?id=${v.vendor_id}" class="text-decoration-none text-reset">
+                <div class="card-soft card-hover p-4 h-100">
+                  <h5 class="mb-1">${esc(v.business_name)}</h5>
+                  <div class="rating">${'★'.repeat(Math.round(v.avg_rating))}${'☆'.repeat(5 - Math.round(v.avg_rating))}
+                    <span class="text-muted small ms-1">${v.avg_rating} (${v.review_count} review${v.review_count > 1 ? 's' : ''})</span>
+                  </div>
+                </div>
+              </a>
+            </div>`).join('');
+    }
+
+    async function init() {
+        await renderNavbar('home');
+
+        // Logged-in users get a shortcut to their dashboard instead of "Start planning"
+        const role = await getRole();
+        if (role) {
+            const target = role === 'admin' ? 'admin/dashboard.html' : 'customer-dashboard.html';
+            document.getElementById('heroButtons').innerHTML =
+                `<a href="${target}" class="btn btn-gold btn-lg px-4">Go to my dashboard</a>
+                 <a href="vendors.html" class="btn btn-outline-light btn-lg px-4">Browse vendors</a>`;
+        }
+
+        loadStats();
+        loadCategories();
+        loadTopVendors();
+    }
+    init();
+</script>
+</body>
+</html>

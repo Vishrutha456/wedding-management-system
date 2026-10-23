@@ -1,0 +1,158 @@
+/* =====================================================================
+   css/style.css  -  shared look for every page
+   Theme: deep maroon + gold on a warm ivory background
+   ===================================================================== */
+
+:root {
+    --maroon:       #7a1f3d;
+    --maroon-dark:  #5c142c;
+    --gold:         #c9a227;
+    --gold-soft:    #f4e7c1;
+    --ivory:        #fbf8f3;
+    --ink:          #2b2024;
+    --muted:        #7a6d71;
+    --border:       #eadfd6;
+    --radius:       14px;
+}
+
+body {
+    background: var(--ivory);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+main { flex: 1; }
+
+h1, h2, h3, .brand, .serif {
+    font-family: 'Playfair Display', Georgia, serif;
+}
+h1, h2, h3, h4, h5, h6 { color: var(--ink); }
+
+a { color: var(--maroon); }
+a:hover { color: var(--maroon-dark); }
+
+/* ---------- Navbar ---------- */
+.navbar-wedding {
+    background: var(--maroon);
+    box-shadow: 0 2px 12px rgba(92, 20, 44, .25);
+}
+.navbar-wedding .navbar-brand {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 1.35rem;
+    color: #fff;
+}
+.navbar-wedding .navbar-brand span { color: var(--gold); }
+.navbar-wedding .nav-link { color: rgba(255,255,255,.82); font-size: .93rem; }
+.navbar-wedding .nav-link:hover,
+.navbar-wedding .nav-link.active { color: #fff; }
+.navbar-wedding .nav-link.active { border-bottom: 2px solid var(--gold); }
+.navbar-wedding .navbar-toggler { border-color: rgba(255,255,255,.4); }
+.navbar-wedding .navbar-toggler-icon { filter: invert(1); }
+.user-chip {
+    background: rgba(255,255,255,.12);
+    color: #fff;
+    border-radius: 999px;
+    padding: .3rem .8rem;
+    font-size: .85rem;
+}
+
+/* ---------- Buttons ---------- */
+.btn-maroon { background: var(--maroon); color: #fff; border: none; }
+.btn-maroon:hover, .btn-maroon:focus { background: var(--maroon-dark); color: #fff; }
+.btn-gold { background: var(--gold); color: #2b2024; border: none; font-weight: 600; }
+.btn-gold:hover { background: #b38f1f; color: #2b2024; }
+.btn-outline-maroon { border: 1.5px solid var(--maroon); color: var(--maroon); background: transparent; }
+.btn-outline-maroon:hover { background: var(--maroon); color: #fff; }
+
+/* ---------- Hero (home page) ---------- */
+.hero {
+    background:
+        radial-gradient(circle at 85% 20%, rgba(201,162,39,.25), transparent 40%),
+        linear-gradient(135deg, var(--maroon) 0%, var(--maroon-dark) 100%);
+    color: #fff;
+    padding: 5rem 0 4.5rem;
+}
+.hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.15; color: #fff; }
+.hero .lead { color: rgba(255,255,255,.85); max-width: 560px; }
+.hero-badge {
+    display: inline-block;
+    border: 1px solid rgba(201,162,39,.6);
+    color: var(--gold);
+    border-radius: 999px;
+    padding: .25rem .9rem;
+    font-size: .8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+/* ---------- Cards ---------- */
+.card-soft {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 2px 10px rgba(43,32,36,.04);
+}
+.card-hover { transition: transform .15s ease, box-shadow .15s ease; }
+.card-hover:hover { transform: translateY(-3px); box-shadow: 0 8px 22px rgba(43,32,36,.08); }
+
+.stat-card { padding: 1.25rem 1.4rem; }
+.stat-card .label { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.stat-card .value { font-size: clamp(1.3rem, 2.4vw, 1.7rem); font-weight: 700; color: var(--maroon); line-height: 1.2; overflow-wrap: anywhere; }
+.stat-card .icon {
+    width: 42px; height: 42px; border-radius: 10px;
+    display: grid; place-items: center;
+    background: var(--gold-soft); color: var(--maroon); font-size: 1.2rem;
+}
+
+.section-title { font-size: 1.6rem; margin-bottom: .25rem; }
+.section-sub { color: var(--muted); margin-bottom: 1.5rem; }
+
+.category-pill {
+    display: flex; align-items: center; gap: .6rem;
+    padding: .9rem 1rem;
+    text-decoration: none; color: var(--ink);
+}
+.category-pill i { color: var(--maroon); font-size: 1.3rem; }
+
+.rating { color: var(--gold); font-weight: 600; }
+
+/* ---------- Forms / auth pages ---------- */
+.auth-wrap { max-width: 460px; margin: 3rem auto; }
+.auth-card { padding: 2rem; }
+.form-control:focus, .form-select:focus {
+    border-color: var(--maroon);
+    box-shadow: 0 0 0 .2rem rgba(122,31,61,.15);
+}
+.demo-box { background: var(--gold-soft); border-radius: 10px; font-size: .85rem; }
+
+/* ---------- Tables ---------- */
+.table-wedding thead th {
+    background: #f6eee8;
+    color: var(--ink);
+    font-weight: 600;
+    font-size: .85rem;
+    white-space: nowrap;
+}
+.table-wedding td { vertical-align: middle; font-size: .92rem; }
+
+/* status badges, e.g. <span class="badge status-Pending">Pending</span> */
+.status-Pending   { background: #fff3cd; color: #8a6300; }
+.status-Confirmed { background: #d6ecff; color: #0b5394; }
+.status-Completed { background: #d4f4dd; color: #1e6b37; }
+.status-Cancelled { background: #f8d7da; color: #842029; }
+.status-Planned   { background: #ece4f7; color: #5b3a8c; }
+.status-Success   { background: #d4f4dd; color: #1e6b37; }
+.status-Failed    { background: #f8d7da; color: #842029; }
+
+/* ---------- Footer ---------- */
+footer {
+    background: #2b2024;
+    color: rgba(255,255,255,.65);
+    font-size: .85rem;
+}
+footer .brand { color: #fff; }
+
+/* loading placeholder text */
+.loading { color: var(--muted); font-style: italic; }

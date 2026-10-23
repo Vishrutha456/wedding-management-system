@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Wedding Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+<nav id="navbar"></nav>
+
+<main>
+  <div class="container py-4">
+
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-4">
+      <div>
+        <h2 class="mb-0" id="greeting">Dashboard</h2>
+        <p class="text-muted mb-0">Here is everything about your wedding plans.</p>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="weddings.html?new=1" class="btn btn-maroon"><i class="bi bi-plus-lg"></i> New wedding</a>
+        <a href="vendors.html" class="btn btn-outline-maroon"><i class="bi bi-search"></i> Find vendors</a>
+      </div>
+    </div>
+
+    <!-- ===== Statistics (all calculated from the database) ===== -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-lg-2"><div class="card-soft stat-card h-100"><div class="label">Weddings</div><div class="value" id="sWeddings">-</div></div></div>
+      <div class="col-6 col-lg-2"><div class="card-soft stat-card h-100"><div class="label">Bookings</div><div class="value" id="sBookings">-</div></div></div>
+      <div class="col-12 col-sm-4 col-lg-3"><div class="card-soft stat-card h-100"><div class="label">Total booked</div><div class="value" id="sBooked">-</div></div></div>
+      <div class="col-6 col-sm-4 col-lg-3"><div class="card-soft stat-card h-100"><div class="label">Amount paid</div><div class="value text-success" id="sPaid">-</div></div></div>
+      <div class="col-6 col-sm-4 col-lg-2"><div class="card-soft stat-card h-100"><div class="label">Balance due</div><div class="value" id="sBalance">-</div></div></div>
+    </div>
+
+    <div class="row g-3">
+      <!-- ===== Upcoming wedding ===== -->
+      <div class="col-lg-4">
+        <div class="card-soft p-4 h-100" id="upcoming">
+          <p class="loading mb-0">Loading...</p>
+        </div>
+      </div>
+
+      <!-- ===== Recent bookings ===== -->
+      <div class="col-lg-8">
+        <div class="card-soft p-4 h-100">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Recent bookings</h5>
+            <a href="bookings.html" class="small">View all</a>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-wedding mb-0">
+              <thead><tr><th>Vendor</th><th>Service date</th><th class="text-end">Amount</th><th class="text-end">Balance</th><th>Status</th></tr></thead>
+              <tbody id="recentBookings"><tr><td colspan="5" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script>
+    async function loadDashboard(customer) {
+        document.getElementById('greeting').textContent = `Hello, ${customer.full_name.split(' ')[0]}`;
+
+        // Weddings of this customer (RLS already limits rows to their own)
+        // SELECT ... FROM wedding w LEFT JOIN venue v ON ... ORDER BY wedding_date
+        const { data: weddings, error: wErr } = await db.from('wedding')
+            .select('wedding_id, bride_name, groom_name, wedding_date, guest_count, status, venue(venue_name, city)')
+            .order('wedding_date');
+
+        // Bookings with total_paid and balance from the booking_summary VIEW
+        const { data: bookings, error: bErr } = await db.from('booking_summary')
+            .select('*')
+            .order('booking_date', { ascending: false });
+
+        if (wErr || bErr) {
+            document.querySelector('main .container').insertAdjacentHTML('afterbegin',
+                `<div class="alert alert-danger">${friendlyError(wErr || bErr)}</div>`);
+            return;
+        }
+
+        // ---- Stats: cancelled bookings are not counted in money totals ----
+        const active = bookings.filter(b => b.booking_status !== 'Cancelled');
+        const sum = (rows, field) => rows.reduce((total, r) => total + Number(r[field]), 0);
+
+        document.getElementById('sWeddings').textContent = weddings.length;
+        document.getElementById('sBookings').textContent = active.length;
+        document.getElementById('sBooked').textContent   = rupees(sum(active, 'agreed_amount'), 0);
+        document.getElementById('sPaid').textContent     = rupees(sum(active, 'total_paid'), 0);
+        document.getElementById('sBalance').textContent  = rupees(sum(active, 'balance'), 0);
+
+        // ---- Next upcoming wedding ----
+        const today = todayISO();
+        const next = weddings.find(w => w.wedding_date >= today && w.status !== 'Cancelled');
+        const box = document.getElementById('upcoming');
+
+        if (next) {
+            const days = Math.round((new Date(next.wedding_date) - new Date(today)) / 86400000);
+            box.innerHTML = `
+                <div class="label text-muted small text-uppercase mb-2">Upcoming wedding</div>
+                <h4 class="mb-1">${esc(next.bride_name)} &amp; ${esc(next.groom_name)}</h4>
+                <p class="mb-3">${statusBadge(next.status)}</p>
+                <p class="mb-1"><i class="bi bi-calendar-event text-muted me-2"></i>${formatDate(next.wedding_date)}</p>
+                <p class="mb-1"><i class="bi bi-geo-alt text-muted me-2"></i>${next.venue ? esc(next.venue.venue_name + ', ' + next.venue.city) : '<span class="text-muted">Venue not selected</span>'}</p>
+                <p class="mb-3"><i class="bi bi-people text-muted me-2"></i>${next.guest_count} guests</p>
+                <div class="hero-badge" style="color:var(--maroon);border-color:var(--gold);">${days === 0 ? 'Today!' : days + ' days to go'}</div>
+                <div class="mt-3"><a href="wedding-details.html?id=${next.wedding_id}" class="btn btn-sm btn-outline-maroon">Open wedding</a></div>`;
+        } else {
+            box.innerHTML = `
+                <div class="label text-muted small text-uppercase mb-2">Upcoming wedding</div>
+                <p class="text-muted">You have no upcoming weddings.</p>
+                <a href="weddings.html?new=1" class="btn btn-sm btn-maroon">Create a wedding</a>`;
+        }
+
+        // ---- Recent bookings table (latest 5) ----
+        const tbody = document.getElementById('recentBookings');
+        if (!bookings.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-muted">No bookings yet. <a href="vendors.html">Browse vendors</a> to book a service.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = bookings.slice(0, 5).map(b => `
+            <tr>
+              <td><div class="fw-semibold">${esc(b.business_name)}</div><div class="small text-muted">${esc(b.package_name)} &middot; ${esc(b.couple)}</div></td>
+              <td>${formatDate(b.service_date)}</td>
+              <td class="text-end">${rupees(b.agreed_amount)}</td>
+              <td class="text-end">${b.booking_status === 'Cancelled' ? '-' : rupees(b.balance)}</td>
+              <td>${statusBadge(b.booking_status)}</td>
+            </tr>`).join('');
+    }
+
+    async function init() {
+        const customer = await requireCustomer();   // redirects to login if not logged in
+        await renderNavbar('dashboard');
+        if (customer) loadDashboard(customer);
+    }
+    init();
+</script>
+</body>
+</html>

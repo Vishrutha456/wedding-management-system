@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wedora | Admin Reports</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Pinyon+Script&display=swap" rel="stylesheet">
+    <link href="css/wedora.css" rel="stylesheet">
+</head>
+<body>
+    <main class="records">
+
+        <div class="topbar">
+            <a class="back-link" href="index.html"><span id="backIcon"></span>Timeline</a>
+            <div class="session-info" id="sessionInfo"></div>
+        </div>
+
+        <header class="rec-header">
+            <div class="lotus" id="lotus" style="margin:0 auto 14px"></div>
+            <div class="event-line">Administrator &middot; Wedora</div>
+            <h1>Reports</h1>
+            <div class="table-name">calculated live from the database</div>
+        </header>
+        <hr class="hairline">
+
+        <!-- filled in by js/reports.js -->
+        <section id="content"><p class="state">Loading&hellip;</p></section>
+
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/icons.js"></script>
+    <script src="js/reports.js"></script>
+</body>
+</html>

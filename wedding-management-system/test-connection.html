@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase 1 - Connection Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<div class="container py-5" style="max-width: 720px;">
+    <h3 class="mb-1">Supabase Connection Test</h3>
+    <p class="text-muted">Wedding Management and Vendoring System &middot; Phase 1</p>
+
+    <div id="result" class="alert alert-secondary">Checking connection...</div>
+
+    <table class="table table-bordered bg-white d-none" id="tableCounts">
+        <thead class="table-light"><tr><th>Table / View</th><th>Rows visible to a visitor</th></tr></thead>
+        <tbody></tbody>
+    </table>
+
+    <p class="small text-muted">
+        Every table should show a number (0 before sample data, more after).
+        "booking" should show <b>blocked</b> - visitors are not allowed to read bookings.
+        That is Row Level Security working.
+    </p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script>
+    async function testConnection() {
+        const result = document.getElementById('result');
+
+        if (SUPABASE_URL.includes('YOUR-PROJECT-ID')) {
+            result.className = 'alert alert-warning';
+            result.innerHTML = 'Open <b>js/supabase.js</b> and paste your Project URL and publishable key first.';
+            return;
+        }
+
+        // Ask for 1 row plus the total row count, so real errors are visible
+        const tables = ['venue', 'vendor_category', 'vendor', 'service_package', 'vendor_rating', 'booking'];
+        const body = document.querySelector('#tableCounts tbody');
+        let reached = false, missing = 0, badKey = false;
+
+        for (const t of tables) {
+            const { count, error, status } = await db.from(t).select('*', { count: 'exact' }).limit(1);
+            let cell;
+            if (!error && count !== null) {
+                cell = count; reached = true;
+            } else if (error && (error.code === '42501' || /permission denied/i.test(error.message))) {
+                cell = '<span class="text-success fw-semibold">blocked (RLS working)</span>'; reached = true;
+            } else if (error && (error.code === 'PGRST205' || error.code === '42P01' || status === 404)) {
+                cell = '<span class="text-warning fw-semibold">table not found</span>'; reached = true; missing++;
+            } else if (status === 401 || /api key/i.test(error?.message || '')) {
+                cell = '<span class="text-danger">key rejected</span>'; badKey = true;
+            } else {
+                cell = `<span class="text-danger">${error ? (error.code || '') + ' ' + error.message : 'no response'} (HTTP ${status})</span>`;
+            }
+            body.innerHTML += `<tr><td>${t}</td><td>${cell}</td></tr>`;
+        }
+
+        document.getElementById('tableCounts').classList.remove('d-none');
+        if (badKey) {
+            result.className = 'alert alert-danger';
+            result.innerHTML = '<b>Supabase rejected your key.</b> Re-copy the publishable (or anon) key into js/supabase.js.';
+        } else if (!reached) {
+            result.className = 'alert alert-danger';
+            result.innerHTML = '<b>Could not reach Supabase.</b> Check the URL and key in js/supabase.js.';
+        } else if (missing > 0) {
+            result.className = 'alert alert-warning';
+            result.innerHTML = '<b>Connected, but the tables were not found.</b> Run supabase/schema.sql in the SQL Editor (Step 9), then refresh this page.';
+        } else {
+            result.className = 'alert alert-success';
+            result.innerHTML = '<b>Connected to Supabase and the database is set up correctly.</b>';
+        }
+    }
+    testConnection();
+</script>
+</body>
+</html>
