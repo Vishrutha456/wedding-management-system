@@ -34,7 +34,8 @@ async function renderSession() {
     const user = await getCurrentUser();
     const box = document.getElementById('sessionInfo');
     if (!user) { box.innerHTML = ''; return; }
-    box.innerHTML = `${esc(user.email)} <button class="link-btn" id="signOutBtn">Sign out</button>`;
+    box.innerHTML = `${esc(user.email)} <a class="link-btn" href="event.html?e=categories" style="margin-left:10px">Categories</a>
+        <button class="link-btn" id="signOutBtn" style="margin-left:10px">Sign out</button>`;
     document.getElementById('signOutBtn').onclick = async () => { await db.auth.signOut(); location.reload(); };
 }
 

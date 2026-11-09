@@ -455,3 +455,41 @@ table.data td:nth-child(2) { min-width: 9.5em; }
 @media (max-width: 640px) {
     .bar-row { grid-template-columns: minmax(0, 40%) minmax(0, 1fr) auto; gap: 8px; font-size: 15px; }
 }
+
+
+/* =====================================================================
+   4. TABS, DATE CHECK, STARS (Vendors / Packages / Reviews)
+   ===================================================================== */
+
+.tabs { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px 30px; margin-top: 24px; }
+.tabs a {
+    text-decoration: none;
+    font-size: 13px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase;
+    color: var(--ivory-dim);
+    padding-bottom: 6px; border-bottom: 1px solid transparent;
+}
+.tabs a:hover { color: var(--ivory); }
+.tabs a.active { color: var(--ivory); border-bottom-color: var(--ivory); }
+
+.date-check {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-size: 11.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--ivory-dim);
+}
+.date-check input {
+    background: transparent; border: 0; border-bottom: 1px solid var(--hairline);
+    color: var(--ivory); font: inherit; font-size: 16px; letter-spacing: 0; text-transform: none;
+    padding: 6px 2px; color-scheme: dark;
+}
+.date-check input:focus { outline: none; border-bottom-color: var(--ivory); }
+
+.stars { letter-spacing: .08em; white-space: nowrap; }
+.stars .off { opacity: .28; }
+
+.status.Available, .status.Verified, .status.Offered { color: var(--ok); border-color: rgba(191,216,176,.45); }
+.status.Booked, .status.Pending, .status.Unverified { color: #e9cf9a; border-color: rgba(233,207,154,.45); }
+.field textarea { resize: vertical; font-family: inherit; }
+
+@media (max-width: 640px) {
+    .tabs { gap: 6px 18px; }
+    .tabs a { font-size: 11px; letter-spacing: .14em; }
+}

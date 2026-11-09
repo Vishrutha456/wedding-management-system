@@ -10,14 +10,28 @@
 // and change: an admin sees everything, a customer only their own data.
 // =====================================================================
 
-const eventKey = new URLSearchParams(location.search).get('e');
-const EVENT = EVENTS.find(ev => ev.key === eventKey);
+const params   = new URLSearchParams(location.search);
+const eventKey = params.get('e');
+const EVENT    = EVENTS.find(ev => ev.key === eventKey) || ADMIN_PAGES.find(ev => ev.key === eventKey);
+
+// Ceremonies that show BOOKINGS also get tabs for that ceremony's
+// vendors, packages and reviews (same vendor categories).
+const TABS = [
+    { key: 'bookings', label: 'Bookings', spec: 'booking' },
+    { key: 'vendors',  label: 'Vendors',  spec: 'vendor'  },
+    { key: 'packages', label: 'Packages', spec: 'package' },
+    { key: 'reviews',  label: 'Reviews',  spec: 'review'  },
+];
+const HAS_TABS = EVENT && EVENT.source.entity === 'booking';
+const TAB = HAS_TABS ? (TABS.find(t => t.key === params.get('tab')) || TABS[0]) : null;
 
 let ROLE = null;        // 'admin' or 'customer'
 let ME = null;          // the CUSTOMER row of a signed-in customer
+let ADMIN_ID = null;    // admin_id of a signed-in admin (used when verifying vendors)
 let SPEC = null;        // how to load/show/save the current table (see SPECS below)
 let ROWS = [];          // rows loaded from the database
-let SEARCH = '';        // current search text
+let SEARCH = (params.get('q') || '').toLowerCase();   // current search text
+let CHECK_DATE = '';    // Packages tab: date chosen for the availability check
 
 const isAdmin = () => ROLE === 'admin';
 
@@ -42,7 +56,16 @@ function niceError(error) {
     if (error.code === '23503') {   // foreign key violation
         return 'This record is linked to other records (for example bookings or payments), so it cannot be deleted. Cancel it instead.';
     }
-    return friendlyError(error);
+    const text = friendlyError(error);
+    if (text === error.message && /duplicate key/i.test(text)) {
+        return 'A record with this value already exists - it must be unique.';
+    }
+    return text;
+}
+
+function stars(n) {
+    const k = Math.round(Number(n) || 0);
+    return `<span class="stars">${'★'.repeat(k)}<span class="off">${'★'.repeat(5 - k)}</span></span>`;
 }
 
 function statusTag(s) { return `<span class="status ${esc(s)}">${esc(s)}</span>`; }
@@ -146,7 +169,7 @@ const SPECS = {
             return list;
         },
 
-        async form(r) {
+        async form(r, defaults = {}) {
             if (r) {   // EDIT (admin only)
                 return [
                     { name: 'service_date', label: 'Service date', type: 'date', value: r.service_date, required: true },
@@ -162,11 +185,12 @@ const SPECS = {
             const fields = [
                 { name: 'wedding_id', label: 'Wedding', type: 'select', required: true, options: weddings,
                   emptyText: weddings.length ? 'Choose a wedding' : 'No weddings yet - add one under Ceremony' },
-                { name: 'package_id', label: 'Vendor package', type: 'select', required: true,
+                { name: 'package_id', label: 'Vendor package', type: 'select', required: true, value: defaults.package_id,
                   options: this.packages.map(p => ({ value: p.package_id,
                       label: `${p.vendor.business_name} - ${p.package_name} (${rupees(p.price, 0)} ${p.price_unit.toLowerCase()})` })),
                   emptyText: this.packages.length ? 'Choose a package' : 'No packages available' },
-                { name: 'service_date', label: 'Service date', type: 'date', required: true, min: isAdmin() ? null : todayISO() },
+                { name: 'service_date', label: 'Service date', type: 'date', required: true, min: isAdmin() ? null : todayISO(),
+                  value: defaults.service_date },
                 { name: 'quantity', label: 'Quantity', type: 'number', min: 1, value: 1, required: true,
                   hint: 'Plates, hours or days, depending on the package' },
             ];
@@ -407,6 +431,321 @@ const SPECS = {
             return checkChanged(await db.from('customer').delete().eq('customer_id', r.customer_id).select());
         },
     },
+
+    // -----------------------------------------------------------------
+    // VENDOR  (vendors in this ceremony's categories)
+    // Customers only see VERIFIED vendors (RLS policy vendor_read).
+    // -----------------------------------------------------------------
+    vendor: {
+        title: 'Vendors',
+        tableName: 'vendor table',
+        searchHint: 'Search by vendor, owner, city or phone',
+        key: r => r.vendor_id,
+
+        async load() {
+            // vendor JOIN vendor_category, plus COUNT of each vendor's packages
+            const [vendors, ratings] = await Promise.all([
+                db.from('vendor')
+                  .select('*, vendor_category!inner(category_name), service_package(count)')
+                  .order('business_name'),
+                db.from('vendor_rating').select('vendor_id, avg_rating, review_count'),
+            ]);
+            if (vendors.error) throw vendors.error;
+            const rating = Object.fromEntries((ratings.data || []).map(x => [x.vendor_id, x]));
+            return vendors.data
+                .filter(v => EVENT.source.categories.includes(v.vendor_category.category_name))
+                .map(v => ({ ...v, rating: rating[v.vendor_id] }));
+        },
+
+        columns: [
+            { label: 'Vendor',   html: r => `${esc(r.business_name)}<span class="sub">${esc(r.owner_name || '')}</span>` },
+            { label: 'Category', html: r => esc(r.vendor_category.category_name) },
+            { label: 'City',     html: r => esc(r.city) },
+            { label: 'Contact',  html: r => `${esc(r.phone)}<span class="sub">${esc(r.email || '')}</span>` },
+            { label: 'Packages', html: r => r.service_package?.[0]?.count ?? 0, cls: 'num' },
+            { label: 'Rating',   html: r => r.rating && r.rating.review_count
+                                    ? `${stars(r.rating.avg_rating)} ${r.rating.avg_rating}<span class="sub">${r.rating.review_count} review${r.rating.review_count > 1 ? 's' : ''}</span>`
+                                    : '<span class="sub">No reviews</span>' },
+            { label: 'Status',   html: r => statusTag(r.verified_by ? 'Verified' : 'Pending') },
+        ],
+
+        canAdd: () => isAdmin(),
+        addNote: 'Only verified vendors are listed. Open a vendor’s packages to book.',
+        canEdit: () => isAdmin(),
+        canDelete: () => isAdmin(),
+
+        extraActions(r) {
+            return [{ label: 'Packages', run: () => {
+                location.href = `event.html?e=${EVENT.key}&tab=packages&q=${encodeURIComponent(r.business_name)}`;
+            } }];
+        },
+
+        async form(r) {
+            const { data: cats, error } = await db.from('vendor_category')
+                .select('category_id, category_name').order('category_name');
+            if (error) throw error;
+            const preferred = cats.find(c => EVENT.source.categories.includes(c.category_name));
+            return [
+                { name: 'business_name', label: 'Business name', type: 'text', maxlength: 80, required: true, value: r?.business_name },
+                { name: 'owner_name', label: 'Owner name', type: 'text', maxlength: 60, value: r?.owner_name, half: true },
+                { name: 'category_id', label: 'Category', type: 'select', required: true, half: true,
+                  value: r?.category_id ?? preferred?.category_id,
+                  options: cats.map(c => ({ value: c.category_id, label: c.category_name })) },
+                { name: 'phone', label: 'Phone', type: 'tel', maxlength: 15, required: true, value: r?.phone, half: true,
+                  pattern: '[0-9+ \\-]{7,15}' },
+                { name: 'email', label: 'Email', type: 'email', maxlength: 80, value: r?.email, half: true },
+                { name: 'city', label: 'City', type: 'text', maxlength: 40, required: true, value: r?.city, half: true },
+                { name: 'verified', label: 'Verified by admin?', type: 'select', required: true, half: true,
+                  value: r ? (r.verified_by ? 'yes' : 'no') : 'yes',
+                  options: [{ value: 'yes', label: 'Yes - visible to customers' }, { value: 'no', label: 'No - hidden from customers' }] },
+            ];
+        },
+
+        async save(v, r) {
+            const row = {
+                business_name: v.business_name.trim(),
+                owner_name: v.owner_name.trim() || null,
+                category_id: Number(v.category_id),
+                phone: v.phone.trim(),
+                email: v.email.trim() || null,
+                city: v.city.trim(),
+                // verified_by = the admin who verified it, NULL = not verified
+                verified_by: v.verified === 'yes' ? (r?.verified_by ?? ADMIN_ID) : null,
+            };
+            if (r) return checkChanged(await db.from('vendor').update(row).eq('vendor_id', r.vendor_id).select());
+            const { error } = await db.from('vendor').insert(row);
+            return error;
+        },
+
+        async remove(r) {
+            // ON DELETE CASCADE removes its packages; bookings prevent deletion (RESTRICT)
+            return checkChanged(await db.from('vendor').delete().eq('vendor_id', r.vendor_id).select());
+        },
+    },
+
+    // -----------------------------------------------------------------
+    // SERVICE_PACKAGE  (+ availability check for a chosen date)
+    // -----------------------------------------------------------------
+    package: {
+        title: 'Service Packages',
+        tableName: 'service_package table',
+        searchHint: 'Search by package, vendor or city',
+        key: r => r.package_id,
+
+        // date box shown next to the search field
+        toolbarExtra: () => `
+            <label class="date-check">Check date
+                <input type="date" id="checkDate" min="${todayISO()}" value="${CHECK_DATE}">
+            </label>`,
+        afterShell() {
+            document.getElementById('checkDate').onchange = (e) => { CHECK_DATE = e.target.value; loadRows(); };
+        },
+
+        async load() {
+            const { data, error } = await db.from('service_package')
+                .select('*, vendor!inner(vendor_id, business_name, city, verified_by, vendor_category!inner(category_name))')
+                .order('price');
+            if (error) throw error;
+            let rows = data.filter(p => EVENT.source.categories.includes(p.vendor.vendor_category.category_name));
+            if (!isAdmin()) rows = rows.filter(p => p.is_active);
+
+            // Availability = SQL function available_packages(date):
+            // active packages with NO non-cancelled booking on that date
+            this.free = null;
+            if (CHECK_DATE) {
+                const { data: free, error: fErr } = await db.rpc('available_packages', { p_date: CHECK_DATE });
+                if (fErr) throw fErr;
+                this.free = new Set(free.map(f => f.package_id));
+            }
+            return rows;
+        },
+
+        columns: [
+            { label: 'Package', html: r => `${esc(r.package_name)}<span class="sub">${esc(r.description || '')}</span>` },
+            { label: 'Vendor',  html: r => `${esc(r.vendor.business_name)}<span class="sub">${esc(r.vendor.city)}</span>` },
+            { label: 'Price',   html: r => `${rupees(r.price, 0)}<span class="sub">${esc(r.price_unit.toLowerCase())}</span>`, cls: 'num' },
+            { label: 'Status',  html: r => {
+                if (!r.is_active) return statusTag('Not offered');
+                if (r.vendor.verified_by === null) return statusTag('Unverified');   // only admins see these
+                if (SPECS.package.free) {
+                    return SPECS.package.free.has(r.package_id)
+                        ? statusTag('Available') + `<span class="sub">on ${formatDate(CHECK_DATE)}</span>`
+                        : statusTag('Booked') + `<span class="sub">on ${formatDate(CHECK_DATE)}</span>`;
+                }
+                return statusTag('Offered');
+            } },
+        ],
+
+        canAdd: () => isAdmin(),
+        addNote: 'Pick a date to check availability, then press “Book”.',
+        canEdit: () => isAdmin(),
+        canDelete: () => isAdmin(),
+
+        extraActions(r) {
+            if (!r.is_active || r.vendor.verified_by === null) return [];
+            if (SPECS.package.free && !SPECS.package.free.has(r.package_id)) return [];   // already booked that day
+            return [{ label: 'Book', run: () =>
+                openForm(null, { package_id: r.package_id, service_date: CHECK_DATE }, SPECS.booking) }];
+        },
+
+        async form(r) {
+            const { data, error } = await db.from('vendor')
+                .select('vendor_id, business_name, vendor_category!inner(category_name)').order('business_name');
+            if (error) throw error;
+            const vendors = data.filter(v => EVENT.source.categories.includes(v.vendor_category.category_name));
+            return [
+                { name: 'vendor_id', label: 'Vendor', type: 'select', required: true, value: r?.vendor_id,
+                  options: vendors.map(v => ({ value: v.vendor_id, label: v.business_name })), emptyText: 'Choose a vendor' },
+                { name: 'package_name', label: 'Package name', type: 'text', maxlength: 80, required: true, value: r?.package_name },
+                { name: 'description', label: 'Description', type: 'textarea', maxlength: 200, value: r?.description },
+                { name: 'price', label: 'Price (₹)', type: 'number', min: 0, step: '0.01', required: true, value: r?.price, half: true },
+                { name: 'price_unit', label: 'Price unit', type: 'select', required: true, half: true, value: r?.price_unit || 'Per Event',
+                  options: ['Per Event', 'Per Plate', 'Per Day', 'Per Hour'].map(u => ({ value: u, label: u })) },
+                { name: 'is_active', label: 'Offered to customers?', type: 'select', required: true,
+                  value: r ? (r.is_active ? 'true' : 'false') : 'true',
+                  options: [{ value: 'true', label: 'Yes - active' }, { value: 'false', label: 'No - hidden' }] },
+            ];
+        },
+
+        async save(v, r) {
+            const row = {
+                vendor_id: Number(v.vendor_id),
+                package_name: v.package_name.trim(),
+                description: v.description.trim() || null,
+                price: toNumber(v.price),
+                price_unit: v.price_unit,
+                is_active: v.is_active === 'true',
+            };
+            if (r) return checkChanged(await db.from('service_package').update(row).eq('package_id', r.package_id).select());
+            const { error } = await db.from('service_package').insert(row);
+            return error;
+        },
+
+        async remove(r) {
+            return checkChanged(await db.from('service_package').delete().eq('package_id', r.package_id).select());
+        },
+    },
+
+    // -----------------------------------------------------------------
+    // REVIEW  (public reviews from the vendor_reviews VIEW)
+    // A customer can review their own COMPLETED bookings, once each.
+    // -----------------------------------------------------------------
+    review: {
+        title: 'Reviews & Ratings',
+        tableName: 'review table',
+        searchHint: 'Search by vendor, package or comment',
+        key: (r, i) => `${r.vendor_id}-${r.review_date}-${r.package_name}`,
+
+        async load() {
+            const [vendors, reviews] = await Promise.all([
+                db.from('vendor').select('vendor_id, business_name, vendor_category!inner(category_name)'),
+                db.from('vendor_reviews').select('*').order('review_date', { ascending: false }),
+            ]);
+            if (vendors.error) throw vendors.error;
+            if (reviews.error) throw reviews.error;
+            const names = Object.fromEntries(vendors.data
+                .filter(v => EVENT.source.categories.includes(v.vendor_category.category_name))
+                .map(v => [v.vendor_id, v.business_name]));
+            return reviews.data
+                .filter(r => names[r.vendor_id])
+                .map(r => ({ ...r, business_name: names[r.vendor_id] }));
+        },
+
+        columns: [
+            { label: 'Vendor',   html: r => `${esc(r.business_name)}<span class="sub">${esc(r.package_name)}</span>` },
+            { label: 'Rating',   html: r => `${stars(r.rating)}<span class="sub">${r.rating} / 5</span>` },
+            { label: 'Comments', html: r => r.comments ? `<em>“${esc(r.comments)}”</em>` : '<span class="sub">—</span>' },
+            { label: 'Date',     html: r => formatDate(r.review_date) },
+        ],
+
+        canAdd: () => !isAdmin(),
+        addNote: 'Reviews are written by couples after a completed booking.',
+        canEdit: () => false,
+        canDelete: () => false,
+
+        async form() {
+            // my completed bookings in these categories that I have not reviewed yet
+            const [bks, mine] = await Promise.all([
+                db.from('booking_summary').select('*')
+                  .in('category_name', EVENT.source.categories)
+                  .eq('booking_status', 'Completed'),
+                db.from('review').select('booking_id'),
+            ]);
+            if (bks.error) throw bks.error;
+            if (mine.error) throw mine.error;
+            const reviewed = new Set(mine.data.map(x => x.booking_id));
+            const options = bks.data.filter(b => !reviewed.has(b.booking_id)).map(b => ({
+                value: b.booking_id,
+                label: `${b.business_name} - ${b.package_name} (${formatDate(b.service_date)})`,
+            }));
+            return [
+                { name: 'booking_id', label: 'Completed booking', type: 'select', required: true, options,
+                  emptyText: options.length ? 'Choose a booking' : 'No completed bookings left to review',
+                  hint: 'Only completed bookings can be reviewed, once each.' },
+                { name: 'rating', label: 'Rating', type: 'select', required: true, value: '5',
+                  options: [[5, 'Excellent'], [4, 'Very good'], [3, 'Good'], [2, 'Fair'], [1, 'Poor']]
+                      .map(([n, t]) => ({ value: n, label: `${'★'.repeat(n)}  ${n} - ${t}` })) },
+                { name: 'comments', label: 'Comments', type: 'textarea', maxlength: 300 },
+            ];
+        },
+
+        async save(v) {
+            const { error } = await db.from('review').insert({
+                booking_id: Number(v.booking_id),
+                rating: Number(v.rating),
+                comments: v.comments.trim() || null,
+            });
+            return error;
+        },
+    },
+
+    // -----------------------------------------------------------------
+    // VENDOR_CATEGORY  (admin page)
+    // -----------------------------------------------------------------
+    category: {
+        title: 'Vendor Categories',
+        tableName: 'vendor_category table',
+        searchHint: 'Search categories',
+        key: r => r.category_id,
+
+        async load() {
+            const { data, error } = await db.from('vendor_category')
+                .select('*, vendor(count)').order('category_name');
+            if (error) throw error;
+            return data;
+        },
+
+        columns: [
+            { label: 'No.',         html: r => `#${r.category_id}` },
+            { label: 'Category',    html: r => esc(r.category_name) },
+            { label: 'Description', html: r => esc(r.description || '—') },
+            { label: 'Vendors',     html: r => r.vendor?.[0]?.count ?? 0, cls: 'num' },
+        ],
+
+        canAdd: () => isAdmin(),
+        addNote: 'Only administrators can manage categories.',
+        canEdit: () => isAdmin(),
+        canDelete: () => isAdmin(),
+
+        async form(r) {
+            return [
+                { name: 'category_name', label: 'Category name', type: 'text', maxlength: 40, required: true, value: r?.category_name },
+                { name: 'description', label: 'Description', type: 'text', maxlength: 150, value: r?.description },
+            ];
+        },
+
+        async save(v, r) {
+            const row = { category_name: v.category_name.trim(), description: v.description.trim() || null };
+            if (r) return checkChanged(await db.from('vendor_category').update(row).eq('category_id', r.category_id).select());
+            const { error } = await db.from('vendor_category').insert(row);
+            return error;
+        },
+
+        async remove(r) {
+            // ON DELETE RESTRICT: a category that still has vendors cannot be deleted
+            return checkChanged(await db.from('vendor_category').delete().eq('category_id', r.category_id).select());
+        },
+    },
 };
 
 
@@ -416,13 +755,18 @@ const SPECS = {
 
 function renderHeader() {
     document.getElementById('backIcon').innerHTML = ICONS.back;
-    document.getElementById('backLink').href = `index.html#ev-${EVENT.key}`;
-    document.title = `Wedora | ${EVENT.pageTitle}`;
+    document.getElementById('backLink').href = EVENT.side ? `index.html#ev-${EVENT.key}` : 'index.html';
+    const title = HAS_TABS && TAB.key !== 'bookings' ? SPEC.title : EVENT.pageTitle;
+    document.title = `Wedora | ${title}`;
+    const categories = HAS_TABS ? ` &middot; ${EVENT.source.categories.join(', ')}` : '';
+    const tabs = HAS_TABS ? `<nav class="tabs" aria-label="Sections">${TABS.map(t =>
+        `<a href="event.html?e=${EVENT.key}&tab=${t.key}" class="${t.key === TAB.key ? 'active' : ''}">${t.label}</a>`).join('')}</nav>` : '';
     document.getElementById('recHeader').innerHTML = `
         <div class="icon">${ICONS[EVENT.icon]}</div>
         <div class="event-line">${EVENT.when} &middot; ${EVENT.title}</div>
-        <h1>${EVENT.pageTitle}</h1>
-        <div class="table-name">from the ${SPEC.tableName}</div>`;
+        <h1>${title}</h1>
+        <div class="table-name">from the ${SPEC.tableName}${categories}</div>
+        ${tabs}`;
 }
 
 async function renderSession() {
@@ -430,7 +774,8 @@ async function renderSession() {
     const box = document.getElementById('sessionInfo');
     if (!user) { box.innerHTML = ''; return; }
     box.innerHTML = `${esc(user.email)} &middot; ${isAdmin() ? 'Admin' : 'Client'}
-        ${isAdmin() ? '<a class="link-btn" href="reports.html" style="margin-left:10px">Reports</a>' : ''}
+        ${isAdmin() ? `<a class="link-btn" href="reports.html" style="margin-left:10px">Reports</a>
+                       <a class="link-btn" href="event.html?e=categories" style="margin-left:10px">Categories</a>` : ''}
         <button class="link-btn" id="signOutBtn">Sign out</button>`;
     document.getElementById('signOutBtn').onclick = async () => { await db.auth.signOut(); location.reload(); };
 }
@@ -474,7 +819,8 @@ function renderRecordsShell() {
 
     document.getElementById('content').innerHTML = `
         <div class="toolbar">
-            <input class="search" id="search" type="search" placeholder="${SPEC.searchHint}" aria-label="Search records">
+            <input class="search" id="search" type="search" placeholder="${SPEC.searchHint}" aria-label="Search records" value="${esc(SEARCH)}">
+            ${SPEC.toolbarExtra ? SPEC.toolbarExtra() : ''}
             ${addBtn}
         </div>
         <div id="pageNotice"></div>
@@ -482,6 +828,7 @@ function renderRecordsShell() {
 
     document.getElementById('search').oninput = (e) => { SEARCH = e.target.value.trim().toLowerCase(); renderTable(); };
     if (SPEC.canAdd()) document.getElementById('addBtn').onclick = () => openForm(null);
+    if (SPEC.afterShell) SPEC.afterShell();
 }
 
 async function loadRows() {
@@ -496,10 +843,16 @@ async function loadRows() {
 }
 
 // search = keep rows where any visible column contains the text
+// (column HTML is turned back into plain text, so "&amp;" matches "&")
+const plainBox = document.createElement('div');
+function plainText(html) {
+    plainBox.innerHTML = String(html);
+    return plainBox.textContent + ' ';
+}
 function visibleRows() {
     if (!SEARCH) return ROWS;
     return ROWS.filter(r => SPEC.columns
-        .map(c => String(c.html(r)).replace(/<[^>]+>/g, ' '))
+        .map(c => plainText(c.html(r)))
         .join(' ').toLowerCase().includes(SEARCH));
 }
 
@@ -570,6 +923,8 @@ function fieldHtml(f) {
             <option value="">${esc(f.emptyText || '—')}</option>
             ${f.options.map(o => option(o.value, o.label, val)).join('')}
         </select>`;
+    } else if (f.type === 'textarea') {
+        input = `<textarea id="f_${f.name}" name="${f.name}" rows="3" ${f.maxlength ? `maxlength="${f.maxlength}"` : ''} ${req}>${esc(val)}</textarea>`;
     } else {
         const attrs = [
             f.min !== null && f.min !== undefined ? `min="${f.min}"` : '',
@@ -595,11 +950,13 @@ function fieldsHtml(fields) {
     return html;
 }
 
-async function openForm(row) {
+// row = null to add, a row to edit.  defaults = pre-filled values.
+// spec = which kind of record (the Packages tab opens a BOOKING form).
+async function openForm(row, defaults = {}, spec = SPEC) {
     openModal('<p class="state">Loading form&hellip;</p>');
     let fields;
     try {
-        fields = await SPEC.form(row);
+        fields = await spec.form(row, defaults);
     } catch (error) {
         openModal(`<p class="state error">${esc(niceError(error))}</p>
                    <div class="buttons"><button class="btn-line" onclick="closeModal()">Close</button></div>`);
@@ -608,7 +965,7 @@ async function openForm(row) {
 
     openModal(`
         <h2>${row ? 'Edit record' : 'Add record'}</h2>
-        <div class="modal-sub">${EVENT.pageTitle}</div>
+        <div class="modal-sub">${spec === SPECS.booking ? 'Booking' : (spec.title || EVENT.pageTitle)}</div>
         <div id="formMsg"></div>
         <form id="recordForm" novalidate>
             ${fieldsHtml(fields)}
@@ -636,14 +993,18 @@ async function openForm(row) {
         const btn = document.getElementById('saveBtn');
         btn.disabled = true; btn.textContent = 'Saving…';
 
-        const error = await SPEC.save(values, row);
+        const error = await spec.save(values, row);
         if (error) {
             msg.innerHTML = `<div class="notice error">${esc(niceError(error))}</div>`;
             btn.disabled = false; btn.textContent = row ? 'Save changes' : 'Add record';
             return;
         }
         closeModal();
-        pageNotice(row ? 'Record updated.' : 'Record added.', 'success');
+        if (spec !== SPEC) {
+            pageNotice(`Booking added. See it under <a href="event.html?e=${EVENT.key}&tab=bookings">Bookings</a>.`, 'success');
+        } else {
+            pageNotice(row ? 'Record updated.' : 'Record added.', 'success');
+        }
         loadRows();
     };
 }
@@ -785,7 +1146,7 @@ async function start() {
         document.getElementById('backIcon').innerHTML = ICONS.back;
         return;
     }
-    SPEC = SPECS[EVENT.source.entity];
+    SPEC = HAS_TABS ? SPECS[TAB.spec] : SPECS[EVENT.source.entity];
     renderHeader();
 
     if (typeof SUPABASE_URL === 'undefined' || SUPABASE_URL.includes('YOUR-PROJECT-ID')) {
@@ -807,6 +1168,7 @@ async function start() {
             return;
         }
     }
+    if (ROLE === 'admin') ADMIN_ID = (await getAdmin())?.admin_id ?? null;
     renderSession();
     renderRecordsShell();
     loadRows();

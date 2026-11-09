@@ -79,3 +79,14 @@ const EVENTS = [
         source: { entity: 'customer' }
     }
 ];
+
+// Pages that are NOT on the timeline (admin tools), opened from the
+// admin links at the top of the records page.
+const ADMIN_PAGES = [
+    {
+        key: 'categories', icon: 'mandap',
+        when: 'Administrator', title: 'Wedora',
+        pageTitle: 'Vendor Categories',
+        source: { entity: 'category' }
+    }
+];
