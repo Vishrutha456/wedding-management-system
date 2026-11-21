@@ -10,6 +10,7 @@
     <link href="css/wedora.css" rel="stylesheet">
 </head>
 <body>
+    <style>main.page { visibility: hidden; }</style>
     <main class="page">
 
         <h1 class="tl-title" aria-label="Wedding Timeline">
@@ -24,11 +25,33 @@
         <ul class="timeline" id="timeline"></ul>
 
         <p class="signature" aria-label="Wedora"><span class="script-cap">W</span>EDORA</p>
+        <p class="account-line" id="accountLine"><a href="login.html">Sign in</a><span>·</span><a href="register.html">Register</a></p>
 
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/auth.js"></script>
     <script src="js/icons.js"></script>
     <script src="js/events.js"></script>
     <script src="js/timeline.js"></script>
+    <script>
+        // The timeline is for signed-in users: visitors are sent to the Sign In page first.
+        (async () => {
+            const role = await getRole();
+            if (!role) { location.replace('login.html'); return; }
+
+            // signed in: show the page and the account line under WEDORA
+            document.querySelector('main.page').style.visibility = 'visible';
+            const home = role === 'admin' ? '<a href="reports.html">Reports</a>' : '<a href="customer-dashboard.html">My dashboard</a>';
+            const line = document.getElementById('accountLine');
+            line.innerHTML = `${home}<span>·</span><a href="#" id="signOut">Sign out</a>`;
+            document.getElementById('signOut').onclick = async (e) => {
+                e.preventDefault();
+                await db.auth.signOut();
+                location.replace('login.html');
+            };
+        })();
+    </script>
 </body>
 </html>

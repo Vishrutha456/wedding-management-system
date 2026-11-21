@@ -3,129 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register | Wedding Management System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
-    <link href="css/style.css" rel="stylesheet">
+    <title>Wedora | Register</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Pinyon+Script&display=swap" rel="stylesheet">
+    <link href="css/wedora.css" rel="stylesheet">
 </head>
 <body>
-<nav id="navbar"></nav>
+    <main class="records">
 
-<main>
-  <div class="container">
-    <div class="auth-wrap" style="max-width: 560px;">
-      <div class="card-soft auth-card">
-        <h2 class="mb-1">Create your account</h2>
-        <p class="text-muted mb-4">Start planning your wedding in minutes.</p>
+        <div class="topbar">
+            <span class="brand-mark"><span class="script-cap">W</span>EDORA</span>
+            <div class="session-info"><a class="link-btn" href="login.html">Sign in</a></div>
+        </div>
 
-        <div id="msg"></div>
+        <header class="rec-header">
+            <div class="lotus" id="lotus" style="margin:0 auto 14px"></div>
+            <div class="event-line">Begin your journey</div>
+            <h1>Create Account</h1>
+            <div class="table-name">for the couple or their family</div>
+        </header>
 
-        <form id="registerForm" novalidate>
-          <div class="mb-3">
-            <label class="form-label" for="fullName">Full name *</label>
-            <input type="text" class="form-control" id="fullName" maxlength="60" placeholder="e.g. Priya Sharma">
-          </div>
-          <div class="row">
-            <div class="col-md-6 mb-3">
-              <label class="form-label" for="email">Email *</label>
-              <input type="email" class="form-control" id="email" maxlength="80" placeholder="you@example.com">
-            </div>
-            <div class="col-md-6 mb-3">
-              <label class="form-label" for="phone">Phone *</label>
-              <input type="tel" class="form-control" id="phone" maxlength="15" placeholder="10-digit mobile number">
-            </div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label" for="address">Address</label>
-            <input type="text" class="form-control" id="address" maxlength="150" placeholder="Area, City">
-          </div>
-          <div class="row">
-            <div class="col-md-6 mb-3">
-              <label class="form-label" for="password">Password *</label>
-              <input type="password" class="form-control" id="password" placeholder="At least 6 characters">
-            </div>
-            <div class="col-md-6 mb-3">
-              <label class="form-label" for="confirm">Confirm password *</label>
-              <input type="password" class="form-control" id="confirm">
-            </div>
-          </div>
-          <button type="submit" class="btn btn-maroon w-100 py-2" id="registerBtn">Create account</button>
-        </form>
+        <div class="panel wide">
+            <div id="msg"></div>
+            <form id="registerForm" novalidate>
+                <div class="field">
+                    <label for="fullName">Full name *</label>
+                    <input type="text" id="fullName" maxlength="60" placeholder="e.g. Priya Sharma" autocomplete="name">
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label for="email">Email *</label>
+                        <input type="email" id="email" maxlength="80" placeholder="you@example.com" autocomplete="email">
+                    </div>
+                    <div class="field">
+                        <label for="phone">Phone *</label>
+                        <input type="tel" id="phone" maxlength="15" placeholder="10-digit mobile number" autocomplete="tel">
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="address">Address</label>
+                    <input type="text" id="address" maxlength="150" placeholder="Area, City" autocomplete="street-address">
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label for="password">Password *</label>
+                        <input type="password" id="password" placeholder="At least 6 characters" autocomplete="new-password">
+                    </div>
+                    <div class="field">
+                        <label for="confirm">Confirm password *</label>
+                        <input type="password" id="confirm" autocomplete="new-password">
+                    </div>
+                </div>
+                <button type="submit" class="btn-line solid" id="registerBtn" style="width:100%">Create account</button>
+            </form>
+            <p style="font-size:16px;margin:18px 0 0">Already registered? <a href="login.html">Sign in</a></p>
+        </div>
 
-        <p class="text-center mt-3 mb-0 small">Already registered? <a href="login.html">Log in</a></p>
-      </div>
-    </div>
-  </div>
-</main>
+    </main>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/supabase.js"></script>
-<script src="js/auth.js"></script>
-<script>
-    // Returns an error message, or '' when the form is valid
-    function validate(f) {
-        if (!f.fullName || !f.email || !f.phone || !f.password) return 'Please fill in all required (*) fields.';
-        if (!/^\S+@\S+\.\S+$/.test(f.email))                   return 'Please enter a valid email address.';
-        if (!/^[0-9+ -]{7,15}$/.test(f.phone))                 return 'Phone number should contain 7-15 digits.';   // same rule as chk_customer_phone in the database
-        if (f.password.length < 6)                             return 'Password must be at least 6 characters.';
-        if (f.password !== f.confirm)                          return 'Passwords do not match.';
-        return '';
-    }
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/icons.js"></script>
+    <script>
+        document.getElementById('lotus').innerHTML = ICONS.lotus;
 
-    document.getElementById('registerForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const f = {
-            fullName: document.getElementById('fullName').value.trim(),
-            email:    document.getElementById('email').value.trim().toLowerCase(),
-            phone:    document.getElementById('phone').value.trim(),
-            address:  document.getElementById('address').value.trim(),
-            password: document.getElementById('password').value,
-            confirm:  document.getElementById('confirm').value,
-        };
+        function notice(text, type = 'error') {
+            document.getElementById('msg').innerHTML = `<div class="notice ${type}">${esc(text)}</div>`;
+        }
 
-        const problem = validate(f);
-        if (problem) { showMessage('msg', problem); return; }
+        // Returns an error message, or '' when the form is valid
+        function validate(f) {
+            if (!f.fullName || !f.email || !f.phone || !f.password) return 'Please fill in all required (*) fields.';
+            if (!/^\S+@\S+\.\S+$/.test(f.email))   return 'Please enter a valid email address.';
+            if (!/^[0-9+ -]{7,15}$/.test(f.phone)) return 'Phone number should contain 7-15 digits.';  // same rule as the database CHECK
+            if (f.password.length < 6)             return 'Password must be at least 6 characters.';
+            if (f.password !== f.confirm)          return 'Passwords do not match.';
+            return '';
+        }
 
-        const btn = document.getElementById('registerBtn');
-        btn.disabled = true; btn.textContent = 'Creating account...';
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const f = {
+                fullName: document.getElementById('fullName').value.trim(),
+                email:    document.getElementById('email').value.trim().toLowerCase(),
+                phone:    document.getElementById('phone').value.trim(),
+                address:  document.getElementById('address').value.trim(),
+                password: document.getElementById('password').value,
+                confirm:  document.getElementById('confirm').value,
+            };
+            const problem = validate(f);
+            if (problem) { notice(problem); return; }
 
-        // 1. Supabase Auth creates the login (password is hashed and stored in auth.users).
-        // 2. The extra details in "data" are saved as user metadata.
-        // 3. Our trigger handle_new_user() (schema.sql) reads that metadata and
-        //    INSERTs the matching row into the CUSTOMER table automatically.
-        const { data, error } = await db.auth.signUp({
-            email: f.email,
-            password: f.password,
-            options: { data: { full_name: f.fullName, phone: f.phone, address: f.address || null } }
+            const btn = document.getElementById('registerBtn');
+            btn.disabled = true; btn.textContent = 'Creating account…';
+
+            // 1. Supabase Auth creates the login (password hashed, stored in auth.users)
+            // 2. The details in "data" are saved as user metadata
+            // 3. Trigger handle_new_user() (schema.sql) inserts the CUSTOMER row automatically
+            const { data, error } = await db.auth.signUp({
+                email: f.email,
+                password: f.password,
+                options: { data: { full_name: f.fullName, phone: f.phone, address: f.address || null } }
+            });
+
+            if (error) {
+                notice(/already registered/i.test(error.message)
+                    ? 'An account with this email already exists. Please sign in.'
+                    : friendlyError(error));
+                btn.disabled = false; btn.textContent = 'Create account';
+                return;
+            }
+            if (data.session) {
+                location.href = 'customer-dashboard.html';      // email confirmation is off
+            } else {
+                document.getElementById('registerForm').reset();
+                notice('Account created! Check your email for the confirmation link, then sign in.', 'success');
+                btn.disabled = false; btn.textContent = 'Create account';
+            }
         });
 
-        if (error) {
-            const text = /already registered/i.test(error.message)
-                ? 'An account with this email already exists. Please log in.'
-                : friendlyError(error);
-            showMessage('msg', text);
-            btn.disabled = false; btn.textContent = 'Create account';
-            return;
-        }
-
-        if (data.session) {
-            // Email confirmation is OFF -> the user is logged in straight away
-            location.href = 'customer-dashboard.html';
-        } else {
-            // Email confirmation is ON -> they must click the link in their inbox first
-            document.getElementById('registerForm').reset();
-            showMessage('msg', 'Account created! Please check your email and click the confirmation link, then log in.', 'success');
-            btn.disabled = false; btn.textContent = 'Create account';
-        }
-    });
-
-    async function init() {
-        if (await getCurrentUser()) { location.href = 'customer-dashboard.html'; return; }
-        renderNavbar('register');
-    }
-    init();
-</script>
+        getCurrentUser().then(user => { if (user) location.href = 'customer-dashboard.html'; });
+    </script>
 </body>
 </html>
