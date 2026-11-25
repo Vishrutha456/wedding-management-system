@@ -54,7 +54,7 @@ async function requireCustomer() {
     const user = await getCurrentUser();
     if (!user) { location.href = BASE + 'login.html'; return null; }
 
-    if (await getRole() === 'admin') { location.href = BASE + 'admin/dashboard.html'; return null; }
+    if (await getRole() === 'admin') { location.href = BASE + 'reports.html'; return null; }
 
     const customer = await getCustomer();
     if (!customer) {
@@ -99,36 +99,30 @@ async function renderNavbar(active = '') {
 
     if (role === 'admin') {
         links = [
-            ['dashboard',  'admin/dashboard.html',  'Dashboard'],
-            ['a-vendors',  'admin/vendors.html',    'Vendors'],
-            ['categories', 'admin/categories.html', 'Categories'],
-            ['a-venues',   'admin/venues.html',     'Venues'],
-            ['a-bookings', 'admin/bookings.html',   'Bookings'],
-            ['a-payments', 'admin/payments.html',   'Payments'],
-            ['reports',    'admin/reports.html',    'Reports'],
+            ['home',      'index.html',                     'Timeline'],
+            ['reports',   'reports.html',                   'Reports'],
+            ['weddings',  'event.html?e=muhurtham',         'Weddings'],
+            ['venues',    'event.html?e=kalyana-mandapam',  'Venues'],
+            ['clients',   'event.html?e=reception',         'Clients'],
         ];
         right = `<span class="user-chip me-2"><i class="bi bi-shield-lock"></i> Admin</span>
                  <button class="btn btn-sm btn-gold" onclick="logout()">Logout</button>`;
     } else if (role === 'customer') {
         const c = await getCustomer();
         links = [
-            ['dashboard', 'customer-dashboard.html', 'Dashboard'],
-            ['weddings',  'weddings.html',           'My Weddings'],
-            ['venues',    'venues.html',             'Venues'],
-            ['vendors',   'vendors.html',            'Vendors'],
-            ['bookings',  'bookings.html',           'Bookings'],
-            ['payments',  'payments.html',           'Payments'],
-            ['reviews',   'reviews.html',            'Reviews'],
+            ['home',      'index.html',                     'Timeline'],
+            ['dashboard', 'customer-dashboard.html',        'Dashboard'],
+            ['weddings',  'event.html?e=muhurtham',         'My Weddings'],
+            ['venues',    'event.html?e=kalyana-mandapam',  'Venues'],
         ];
         const firstName = c ? esc(c.full_name.split(' ')[0]) : 'Account';
-        right = `<a class="user-chip me-2 text-decoration-none" href="${BASE}reviews.html#profile">
+        right = `<a class="user-chip me-2 text-decoration-none" href="${BASE}event.html?e=reception">
                     <i class="bi bi-person-circle"></i> ${firstName}</a>
                  <button class="btn btn-sm btn-gold" onclick="logout()">Logout</button>`;
     } else {
         links = [
-            ['home',    'index.html',   'Home'],
-            ['venues',  'venues.html',  'Venues'],
-            ['vendors', 'vendors.html', 'Vendors'],
+            ['home',      'index.html',                     'Timeline'],
+            ['venues',    'event.html?e=kalyana-mandapam',  'Venues'],
         ];
         right = `<a class="btn btn-sm btn-outline-light me-2" href="${BASE}login.html">Login</a>
                  <a class="btn btn-sm btn-gold" href="${BASE}register.html">Register</a>`;
@@ -141,7 +135,7 @@ async function renderNavbar(active = '') {
     document.getElementById('navbar').outerHTML = `
     <nav class="navbar navbar-expand-lg navbar-wedding sticky-top">
       <div class="container">
-        <a class="navbar-brand" href="${BASE}index.html"><i class="bi bi-flower1"></i> Vivaha<span>Hub</span></a>
+        <a class="navbar-brand" href="${BASE}index.html"><i class="bi bi-flower1"></i> We<span>dora</span></a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
           <span class="navbar-toggler-icon"></span>
         </button>
@@ -160,7 +154,7 @@ function renderFooter() {
     document.body.insertAdjacentHTML('beforeend', `
     <footer class="py-4 mt-5">
       <div class="container d-flex flex-wrap justify-content-between gap-2">
-        <span><span class="brand serif">VivahaHub</span> &middot; Wedding Management and Vendoring System</span>
+        <span><span class="brand serif">Wedora</span> &middot; Wedding Management and Vendoring System</span>
         <span>DBMS Mini Project &middot; Dept. of CSE, SJBIT</span>
       </div>
     </footer>`);
